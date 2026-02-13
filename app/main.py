@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from app.core.config import settings
 from app.api.v1.api import router as api_router # Renamed import
 from app.database import Base, engine
+from app.models.user import User
+from app.models.document import Document
 
 app = FastAPI(
     title="Carte Grise OCR API",

@@ -1,14 +1,18 @@
 from app.core.celery_app import celery_app
 from app.database import SessionLocal
 from app.models.document import Document
+from app.models.user import User
 from app.services.ai.mistral_client import mistral_client
 from app.services.ai.prompts import COUNTRY_PROMPTS
 from app.services.image_processing import preprocess_image
 from app.services.validation import car_plate_validator
 
+import base64
+
 @celery_app.task(name="process_image_for_extraction")
 def process_image_for_extraction(document_id: int, image_base64: str, country_code: str):
     db = SessionLocal()
+    document = None  # Initialize document to None
     try:
         document = db.query(Document).filter(Document.id == document_id).first()
         if not document:
@@ -17,7 +21,9 @@ def process_image_for_extraction(document_id: int, image_base64: str, country_co
 
         # 1. Pre-process image
         try:
-            processed_image_base64 = preprocess_image(image_base64.encode('utf-8'))
+            # Decode the base64 string to get the raw image bytes
+            image_data = base64.b64decode(image_base64)
+            processed_image_base64 = preprocess_image(image_data)
         except Exception as e:
             document.status = "failed"
             document.extracted_data = {"error": f"Image preprocessing failed: {str(e)}"}

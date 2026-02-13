@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5789:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d carte_grise_ocr_db"]
       interval: 5s
@@ -33,17 +33,14 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-    command: bash -c "sleep 10 && poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    volumes:
-      - .:/app
+    command: bash -c "sleep 10 && python3 -m alembic upgrade head && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
+      # This overrides the value in the .env file to ensure container-to-container communication
       DATABASE_URL: postgresql+psycopg2://user:password@db:5432/carte_grise_ocr_db
-      REDIS_BROKER_URL: redis://redis:6379/0
-      REDIS_BACKEND_URL: redis://redis:6379/1
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY} # Make sure to set this in your .env file
-      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy
@@ -54,13 +51,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
-    volumes:
-      - .:/app
+    command: python3 -m celery -A app.core.celery_app worker -l info -P solo
+    env_file:
+      - .env
     environment:
+      # This overrides the value in the .env file to ensure container-to-container communication
       DATABASE_URL: postgresql+psycopg2://user:password@db:5432/carte_grise_ocr_db
-      REDIS_BROKER_URL: redis://redis:6379/0
-      REDIS_BACKEND_URL: redis://redis:6379/1
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY} # Make sure to set this in your .env file
     depends_on:
       db:
         condition: service_healthy

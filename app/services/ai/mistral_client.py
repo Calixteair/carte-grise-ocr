@@ -1,10 +1,9 @@
 import json
 from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
 
 from app.core.config import settings
-from app.schemas.car_plate_fr import CarPlateFR
-from app.schemas.car_plate_tn import CarPlateTN
+# from app.schemas.car_plate_fr import CarPlateFR
+# from app.schemas.car_plate_tn import CarPlateTN
 
 class MistralAIClient:
     def __init__(self):
@@ -12,13 +11,13 @@ class MistralAIClient:
 
     def extract_car_plate_data(self, image_base64: str, country_prompt: str) -> dict:
         messages = [
-            ChatMessage(
-                role="user",
-                content=[
+            {
+                "role": "user",
+                "content": [
                     {"type": "text", "text": country_prompt},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-                ]
-            )
+                ],
+            }
         ]
 
         # Use the JSON mode for the response

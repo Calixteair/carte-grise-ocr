@@ -1,34 +1,54 @@
-# Stage 1: Build stage
+# Stage 1: Build stage - To install dependencies
 FROM python:3.12-slim-bookworm as builder
+
+# Install system dependencies required for some Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Install Poetry
 RUN pip install poetry==1.7.1
 
-# Copy project files
+# Copy only files needed for dependency installation
 COPY pyproject.toml poetry.lock ./
-COPY ./alembic ./alembic/
 
-# Install dependencies
-RUN poetry install --no-root --without dev
+# Remove the lock file to force re-resolution from pyproject.toml as it's out of sync
+RUN rm poetry.lock
 
-# Stage 2: Final image
+# Configure Poetry to not create a virtual environment
+RUN poetry config virtualenvs.create false
+
+# Install only main dependencies
+RUN poetry install --no-root --only main
+
+# Stage 2: Final image - To run the application
 FROM python:3.12-slim-bookworm
 
+# Set the working directory
 WORKDIR /app
 
-# Copy installed packages from builder stage
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Install runtime dependencies for libraries like OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libxcb1 \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the application code
+# Copy installed packages from the builder's site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
+# Copy the application code
 COPY ./app ./app/
+COPY ./alembic ./alembic/
 COPY alembic.ini .
 COPY .env .
 
 # Expose the port FastAPI runs on
 EXPOSE 8000
 
-# Command to run the application
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run uvicorn server
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

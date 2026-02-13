@@ -9,6 +9,9 @@ from app.schemas.common import Document as DocumentSchema
 from app.worker.tasks import process_image_for_extraction
 from app.services.image_processing import is_valid_image
 
+from app.models.user import User
+from app.core.security import get_password_hash
+
 router = APIRouter()
 
 @router.post("/upload-and-extract/", response_model=DocumentSchema)
@@ -34,12 +37,22 @@ async def upload_image_for_extraction(
     # Encode image to base64
     image_base64 = base64.b64encode(image_data).decode("utf-8")
 
+    # Ensure a default user exists to prevent foreign key violations.
+    default_user = db.query(User).filter(User.id == 1).first()
+    if not default_user:
+        default_user = User(
+            id=1,
+            email="default@example.com",
+            hashed_password=get_password_hash("defaultpassword"),
+            is_active=True
+        )
+        db.add(default_user)
+
     # Create a new document entry in the database
     db_document = Document(
         filename=file.filename,
         status="pending",
-        # owner_id should be set based on authenticated user, for now using a placeholder
-        owner_id=1 # TODO: Replace with actual authenticated user ID
+        owner_id=default_user.id
     )
     db.add(db_document)
     db.commit()

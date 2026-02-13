@@ -11,7 +11,8 @@ celery_app = Celery(
 celery_app.conf.update(
     task_track_started=True,
     task_time_limit=3600, # 1 hour
-    broker_connection_retry_on_startup=True
+    broker_connection_retry_on_startup=True,
+    include=['app.worker.tasks']
 )
 
 # Optional: Load task modules
